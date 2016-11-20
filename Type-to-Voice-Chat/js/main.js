@@ -1,7 +1,4 @@
-﻿// For an introduction to the Blank template, see the following documentation:
-// http://go.microsoft.com/fwlink/?LinkId=232509
-
-(function () {
+﻿(() => {
 	"use strict";
 
 	const app = WinJS.Application;
@@ -22,7 +19,7 @@
 	const synthesizer = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
 	let outputDeviceInfo = null;
 
-	app.onactivated = function (args) {
+	app.onactivated = (args) => {
 		if (isFirstActivation) {
 		    args.setPromise(WinJS.UI.processAll().then(function completed() {
 		        document.addEventListener("keydown", onKeyDown);
@@ -41,6 +38,7 @@
 		}
 		isFirstActivation = false;
 	};
+	app.start();
 
 	function onKeyDown(eventInfo) {
 	    switch (eventInfo.keyCode) {
@@ -71,8 +69,7 @@
 	    });
 
 	    // Write buffer to temp file.
-	    // TODO: Is this necessary?
-	    bufferPromise.then(buffer => {
+	    const filePromise = bufferPromise.then(buffer => {
 	        const tempFolder =
                 Windows.Storage.ApplicationData.current.temporaryFolder;
 	        const filePromise =
@@ -82,10 +79,10 @@
                     }
                     return file;
                 });
-	        filePromise.then(file => Windows.Storage.FileIO.writeBufferAsync(
+	        return filePromise.then(file => Windows.Storage.FileIO.writeBufferAsync(
                 file,
                 buffer
-            ));
+            )).then(() => filePromise);
 	    });
 
 	    // Use AudioGraph to play buffer.
@@ -100,44 +97,49 @@
                 Windows.Media.Audio.AudioGraphCreationStatus.success) {
                 return createAudioGraphResult.graph;
             }
-            throw new Error('Error creating AudioGraph', createAudioGraphResult.status);
-	    });
+            throw new Error(
+                'Error creating AudioGraph',
+                createAudioGraphResult.status
+            );
+        });
+ 
 	    const inputNodePromise = Promise.all([
             audioGraphPromise,
-            bufferPromise,
-            streamPromise
-	    ]).then(([
-            audioGraph,
-            buffer,
-            stream
-	    ]) => {
-            const inputNode = audioGraph.createInputNode();
-            const audioFrame = new Windows.Media.audioFrame(stream.size);
-            const audioBuffer = audioFrame.lockBuffer(
-                Windows.Media.AudioBufferAccessMode.write
-            );
-	        // TODO: Copy buffer to audioBuffer
-            inputNode.addFrame(audioFrame);
-            return inputNode;
+            filePromise
+	    ]).then(([audioGraph, file]) => {
+	        return audioGraph.createFileInputNodeAsync(file).then(result => {
+	            if (result.status ===
+                    Windows.Media.Audio.AudioFileNodeCreationStatus.success) {
+	                return result.fileInputNode;
+	            }
+	            throw new Error(
+                    'Error creating AudioFileInputNode',
+                    result.status
+                );
+	        });
 	    });
+ 
 	    const outputNodePromise = audioGraphPromise.then(
             audioGraph => audioGraph.createDeviceOutputNodeAsync(
                 Windows.Media.Render.AudioRenderCategory.communications
-            )
+            ).then(result => {
+                if (result.status ===
+                    Windows.Media.Audio.AudioDeviceNodeCreationStatus.success) {
+                    return result.deviceOutputNode;
+                }
+                throw new Error(
+                    'Error creating AudioDeviceOutputNode',
+                    result.status
+                );
+            })
         );
- 
-	    // Playback message using Blob.
-	    // TODO: Remove this after AudioGraph playback works.
-	    streamPromise.done(stream => {
-	        // Convert the stream to a URL Blob.
-	        const blob = MSApp.createBlobFromRandomAccessStream(
-                stream.ContentType,
-                stream
-            );
-	        const blobURL = URL.createObjectURL(blob, { oneTimeOnly: true });
-	        const audio = new Audio();
-	        audio.src = blobURL;
-	        audio.play();
+	    Promise.all([
+            audioGraphPromise,
+            inputNodePromise,
+            outputNodePromise
+	    ]).then(([audioGraph, inputNode, outputNode]) => {
+	        inputNode.addOutgoingConnection(outputNode);
+	        audioGraph.start();
 	    });
 
         // Update message history.
@@ -175,7 +177,7 @@
 	    const buttonRect = devicePickerButton.getBoundingClientRect();
 	    const devicePicker = new Windows.Devices.Enumeration.DevicePicker();
         // TODO: Filter only audio devices.
-	    devicePicker.filter().pickSingleDeviceAsync({
+	    devicePicker.pickSingleDeviceAsync({
 	        x: buttonRect.left,
 	        y: buttonRect.top,
 	        width: buttonRect.width,
@@ -188,7 +190,4 @@
 	        devicePickerButton.disabled = false;
 	    });
 	}
-
-	app.start();
-
 })();
