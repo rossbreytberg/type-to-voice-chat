@@ -1,0 +1,32 @@
+﻿body {
+	background-color: #000;
+}
+
+#devicePickerButton {
+	color: white;
+	background-color: transparent;
+	border: none;
+	bottom: 4px;
+	font-size: 20px;
+	outline: none;
+	position: absolute;
+	right: 4px;
+}
+
+#devicePickerButton:active {
+	color: #ccc;
+}
+
+#messageInput {
+	color: #fff;
+	background-color: transparent;
+	border: solid #fff;
+	border-width: 0 0 1px;
+	left: 50%;
+	outline: none;
+	padding: 4px;
+	position: absolute;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 70%;
+}
