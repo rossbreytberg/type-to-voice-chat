@@ -1,96 +1,99 @@
 ﻿(() => {
-	"use strict";
+    "use strict";
 
-	const app = WinJS.Application;
-	let isFirstActivation = true;
+    const app = WinJS.Application;
+    let isFirstActivation = true;
 
     // Consts
-	const MESSAGE_FILE_NAME = "message.wav";
+    const MESSAGE_FILE_NAME = "message.wav";
 
     // DOM Elements
-	let devicePickerButton = null;
-	let messageInput = null;
+    let devicePickerButton = null;
+    let messageInput = null;
 
     // Message History
-	const messageHistory = [];
-	let messageHistoryIndex = 0;
+    const messageHistory = [];
+    let messageHistoryIndex = 0;
 
     // Audio
-	const synthesizer = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
-	let outputDeviceInfo = null;
+    const synthesizer = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
+    let outputDeviceInfo = null;
 
-	app.onactivated = (args) => {
-		if (isFirstActivation) {
-		    args.setPromise(WinJS.UI.processAll().then(function completed() {
-		        document.addEventListener("keydown", onKeyDown);
+    app.onactivated = (args) => {
+        if (isFirstActivation) {
+            args.setPromise(WinJS.UI.processAll().then(function completed() {
+                Windows.UI.ViewManagement.ApplicationView.getForCurrentView()
+                    .setPreferredMinSize({width: 500, height: 100})
 
-		        devicePickerButton = document.getElementById(
+                document.addEventListener("keydown", onKeyDown);
+
+                devicePickerButton = document.getElementById(
                     "devicePickerButton"
                 );
-		        devicePickerButton.addEventListener(
+                devicePickerButton.addEventListener(
                     "click",
                     onDevicePickerButtonClick
                 );
 
-		        messageInput = document.getElementById("messageInput");
-		        messageInput.addEventListener("input", onMessageInputChange);
-		    }));
-		}
-		isFirstActivation = false;
-	};
-	app.start();
+                messageInput = document.getElementById("messageInput");
+                messageInput.addEventListener("input", onMessageInputChange);
+            }));
+        }
+        isFirstActivation = false;
+    };
+    app.start();
 
-	function onKeyDown(eventInfo) {
-	    switch (eventInfo.keyCode) {
-	        case 13: // Enter
-	            return onMessageSubmit();
-	        case 38: // Up
-	            return prevMessage();
-	        case 40: // Down
-	            return nextMessage();
-	    }
-	}
+    function onKeyDown(eventInfo) {
+        switch (eventInfo.keyCode) {
+            case 13: // Enter
+                return onMessageSubmit();
+            case 38: // Up
+                return prevMessage();
+            case 40: // Down
+                return nextMessage();
+        }
+    }
 
-	function onMessageInputChange(eventInfo) {
+    function onMessageInputChange(eventInfo) {
         // Update newest message in history as it's typed.
-	    messageHistory[0] = messageInput.value;
-	}
+        messageHistory[0] = messageInput.value;
+    }
 
-	function onMessageSubmit() {
-	    const message = messageInput.value;
-	    const streamPromise = synthesizer.synthesizeTextToStreamAsync(message);
+    function onMessageSubmit() {
+        const message = messageInput.value;
+        const streamPromise = synthesizer.synthesizeTextToStreamAsync(message);
 
-	    // Get audio buffer.
-	    const bufferPromise = streamPromise.then(stream => {
-	        const dataReader = new Windows.Storage.Streams.DataReader(stream);
-	        return dataReader.loadAsync(stream.size).then(
+        // Get audio buffer.
+        const bufferPromise = streamPromise.then(stream => {
+            const dataReader = new Windows.Storage.Streams.DataReader(stream);
+            return dataReader.loadAsync(stream.size).then(
                 () => dataReader.readBuffer(stream.size)
             );
-	    });
+        });
 
-	    // Write buffer to temp file.
-	    const filePromise = bufferPromise.then(buffer => {
-	        const tempFolder =
+        // Write buffer to temp file.
+        const filePromise = bufferPromise.then(buffer => {
+            const tempFolder =
                 Windows.Storage.ApplicationData.current.temporaryFolder;
-	        const filePromise =
+            const filePromise =
                 tempFolder.tryGetItemAsync(MESSAGE_FILE_NAME).then(file => {
                     if (file === null) {
                         return tempFolder.createFileAsync(MESSAGE_FILE_NAME);
                     }
                     return file;
                 });
-	        return filePromise.then(file => Windows.Storage.FileIO.writeBufferAsync(
+            return filePromise.then(file => Windows.Storage.FileIO.writeBufferAsync(
                 file,
                 buffer
             )).then(() => filePromise);
-	    });
+        });
 
-	    // Use AudioGraph to play buffer.
-	    const audioGraphSettings = new Windows.Media.Audio.AudioGraphSettings(
+        // Use AudioGraph to play buffer.
+        const audioGraphSettings = new Windows.Media.Audio.AudioGraphSettings(
             Windows.Media.Render.AudioRenderCategory.communications
         );
-	    audioGraphSettings.primaryRenderDevice = outputDeviceInfo;
-	    const audioGraphPromise = Windows.Media.Audio.AudioGraph.createAsync(
+        audioGraphSettings.primaryRenderDevice = outputDeviceInfo;
+        const audioGraphPromise = Windows.Media.Audio.AudioGraph.createAsync(
             audioGraphSettings
         ).then(createAudioGraphResult => {
             if (createAudioGraphResult.status ===
@@ -103,23 +106,23 @@
             );
         });
  
-	    const inputNodePromise = Promise.all([
+        const inputNodePromise = Promise.all([
             audioGraphPromise,
             filePromise
-	    ]).then(([audioGraph, file]) => {
-	        return audioGraph.createFileInputNodeAsync(file).then(result => {
-	            if (result.status ===
+        ]).then(([audioGraph, file]) => {
+            return audioGraph.createFileInputNodeAsync(file).then(result => {
+                if (result.status ===
                     Windows.Media.Audio.AudioFileNodeCreationStatus.success) {
-	                return result.fileInputNode;
-	            }
-	            throw new Error(
+                    return result.fileInputNode;
+                }
+                throw new Error(
                     'Error creating AudioFileInputNode',
                     result.status
                 );
-	        });
-	    });
+            });
+        });
  
-	    const outputNodePromise = audioGraphPromise.then(
+        const outputNodePromise = audioGraphPromise.then(
             audioGraph => audioGraph.createDeviceOutputNodeAsync(
                 Windows.Media.Render.AudioRenderCategory.communications
             ).then(result => {
@@ -133,61 +136,63 @@
                 );
             })
         );
-	    Promise.all([
+        Promise.all([
             audioGraphPromise,
             inputNodePromise,
             outputNodePromise
-	    ]).then(([audioGraph, inputNode, outputNode]) => {
-	        inputNode.addOutgoingConnection(outputNode);
-	        audioGraph.start();
-	    });
+        ]).then(([audioGraph, inputNode, outputNode]) => {
+            inputNode.addOutgoingConnection(outputNode);
+            audioGraph.start();
+        });
 
         // Update message history.
-	    if (messageHistoryIndex > 0) {
-	        // If a message from history was sent, overwrite the
+        if (messageHistoryIndex > 0) {
+            // If a message from history was sent, overwrite the
             // newest index with that message and reset the index.
-	        messageHistory[0] = messageHistory[messageHistoryIndex];
-	        messageHistoryIndex = 0;
-	    }
-	    messageHistory.unshift("");
-	    messageInput.value = '';
-	}
+            messageHistory[0] = messageHistory[messageHistoryIndex];
+            messageHistoryIndex = 0;
+        }
+        messageHistory.unshift("");
+        messageInput.value = '';
+    }
 
-	function prevMessage() {
-	    if (messageHistoryIndex >= messageHistory.length - 1) {
+    function prevMessage() {
+        if (messageHistoryIndex >= messageHistory.length - 1) {
             // Reached end of history.
-	        return;
-	    }
-	    messageHistoryIndex++;
-	    messageInput.value = messageHistory[messageHistoryIndex];
-	}
+            return;
+        }
+        messageHistoryIndex++;
+        messageInput.value = messageHistory[messageHistoryIndex];
+    }
 
-	function nextMessage() {
-	    if (messageHistoryIndex === 0) {
+    function nextMessage() {
+        if (messageHistoryIndex === 0) {
             // Reached beginning of history.
-	        return;
-	    }
-	    messageHistoryIndex--;
-	    messageInput.value = messageHistory[messageHistoryIndex];
-	}
+            return;
+        }
+        messageHistoryIndex--;
+        messageInput.value = messageHistory[messageHistoryIndex];
+    }
 
-	function onDevicePickerButtonClick() {
-	    devicePickerButton.disabled = true;
+    function onDevicePickerButtonClick() {
+        devicePickerButton.disabled = true;
 
-	    const buttonRect = devicePickerButton.getBoundingClientRect();
-	    const devicePicker = new Windows.Devices.Enumeration.DevicePicker();
-        // TODO: Filter only audio devices.
-	    devicePicker.pickSingleDeviceAsync({
-	        x: buttonRect.left,
-	        y: buttonRect.top,
-	        width: buttonRect.width,
-	        height: buttonRect.height,
-	    }).done(deviceInfo => {
-	        if (deviceInfo !== null) {
-	            outputDeviceInfo = deviceInfo;
-	            console.log(deviceInfo);
-	        }
-	        devicePickerButton.disabled = false;
-	    });
-	}
+        const devicePicker = new Windows.Devices.Enumeration.DevicePicker();
+        devicePicker.filter.supportedDeviceClasses.append(
+            Windows.Devices.Enumeration.DeviceClass.audioRender
+        );
+
+        const buttonRect = devicePickerButton.getBoundingClientRect();
+        devicePicker.pickSingleDeviceAsync({
+            x: buttonRect.left,
+            y: buttonRect.top,
+            width: buttonRect.width,
+            height: buttonRect.height,
+        }).done(deviceInfo => {
+            if (deviceInfo !== null) {
+                outputDeviceInfo = deviceInfo;
+            }
+            devicePickerButton.disabled = false;
+        });
+    }
 })();

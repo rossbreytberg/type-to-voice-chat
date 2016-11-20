@@ -6,11 +6,12 @@
 	color: white;
 	background-color: transparent;
 	border: none;
-	bottom: 4px;
 	font-size: 20px;
 	outline: none;
 	position: absolute;
-	right: 4px;
+	left: 85%;
+	top: 50%;
+	transform: translate(0, -50%);
 }
 
 #devicePickerButton:active {
