@@ -23,7 +23,7 @@
         if (isFirstActivation) {
             args.setPromise(WinJS.UI.processAll().then(function completed() {
                 Windows.UI.ViewManagement.ApplicationView.getForCurrentView()
-                    .setPreferredMinSize({width: 500, height: 100})
+                    .setPreferredMinSize({width: 310, height: 150})
 
                 document.addEventListener("keydown", onKeyDown);
 
