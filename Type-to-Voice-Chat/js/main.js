@@ -5,10 +5,11 @@
     let isFirstActivation = true;
 
     // Consts
-    const MESSAGE_FILE_NAME = "message.wav";
+    const DEVICE_SELECTOR_BUTTON_ID = "deviceSelectorButton";
+    const MESSAGE_INPUT_ID = "messageInput";
+    const TEMP_FILE_NAME = "message.wav";
+    const VOICE_SELECTOR_BUTTON_ID = "voiceSelectorButton";
 
-    const devicePicker = createDevicePicker();
-    let devicePickerButton = null;
     let selectedDeviceInfo = null;
     const synthesizer = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
     const voicePicker = createVoicePicker();
@@ -20,20 +21,19 @@
                 Windows.UI.ViewManagement.ApplicationView.getForCurrentView()
                     .setPreferredMinSize({width: 310, height: 150})
 
-                devicePickerButton = document.getElementById(
-                    "devicePickerButton"
+                new AudioRendererSelector(
+                    document.getElementById(DEVICE_SELECTOR_BUTTON_ID),
+                    deviceInfo => selectedDeviceInfo = deviceInfo
                 );
-                document.body.appendChild(devicePicker.element);
-                devicePickerButton.onclick = () => devicePicker.show();
 
                 voicePickerButton = document.getElementById(
-                    "voicePickerButton"
+                    VOICE_SELECTOR_BUTTON_ID
                 );
                 document.body.appendChild(voicePicker.element);
                 voicePickerButton.onclick = () =>  voicePicker.show();
 
                 new MessageInput(
-                    document.getElementById("messageInput"),
+                    document.getElementById(MESSAGE_INPUT_ID),
                     onMessageSubmit
                 );
             }));
@@ -58,9 +58,9 @@
             const tempFolder =
                 Windows.Storage.ApplicationData.current.temporaryFolder;
             const filePromise =
-                tempFolder.tryGetItemAsync(MESSAGE_FILE_NAME).then(file => {
+                tempFolder.tryGetItemAsync(TEMP_FILE_NAME).then(file => {
                     if (file === null) {
-                        return tempFolder.createFileAsync(MESSAGE_FILE_NAME);
+                        return tempFolder.createFileAsync(TEMP_FILE_NAME);
                     }
                     return file;
                 });
@@ -128,53 +128,9 @@
         });
     }
 
-    function createDevicePicker() {
-        const menu = new WinJS.UI.Menu(null, {
-            anchor: "devicePickerButton"
-        });
-        const loadingCommand = new WinJS.UI.MenuCommand(null, {
-            id: "loading",
-            label: "Loading..."
-        });
-        menu.element.appendChild(loadingCommand.element);
-
-        const defaultDeviceID =
-            Windows.Media.Devices.MediaDevice.getDefaultAudioRenderId(
-                Windows.Media.Devices.AudioDeviceRole.communications
-            );
-        Windows.Devices.Enumeration.DeviceInformation.findAllAsync(
-            Windows.Devices.Enumeration.DeviceClass.audioRender
-        ).then(devices => {
-            loadingCommand.hidden = true;
-            devices.forEach(deviceInfo => {
-                if (deviceInfo.id === defaultDeviceID) {
-                    selectedDeviceInfo = deviceInfo;
-                }
-                const command = new WinJS.UI.MenuCommand(null, {
-                    id: getIDFromString(deviceInfo.id),
-                    label: deviceInfo.name,
-                    onclick: () => {
-                        menu.getCommandById(
-                            getIDFromString(selectedDeviceInfo.id)
-                        ).selected = false;
-                        menu.getCommandById(
-                            getIDFromString(deviceInfo.id)
-                        ).selected = true;
-                        selectedDeviceInfo = deviceInfo;
-                    },
-                    selected: deviceInfo.id === defaultDeviceID,
-                    type: "toggle"
-
-                });
-                menu.element.appendChild(command.element);
-            });
-        });
-        return menu;
-    }
-
     function createVoicePicker() {
         const menu = new WinJS.UI.Menu(null, {
-            anchor: "voicePickerButton"
+            anchor: VOICE_SELECTOR_BUTTON_ID
         });
         Windows.Media.SpeechSynthesis.SpeechSynthesizer.allVoices.forEach(
             voice => {

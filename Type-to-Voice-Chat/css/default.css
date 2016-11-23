@@ -19,7 +19,7 @@ button:hover {
 	color: #ccc;
 }
 
-#devicePickerButton {
+#deviceSelectorButton {
 	margin-left: 4px;
 	position: absolute;
 	left: 85%;
@@ -27,7 +27,7 @@ button:hover {
 	transform: translate(0, -50%);
 }
 
-#voicePickerButton {
+#voiceSelectorButton {
 	margin-right: 4px;
 	position: absolute;
 	right: 85%;
