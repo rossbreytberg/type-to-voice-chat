@@ -1,7 +1,8 @@
 ﻿class SpeechSynthesizerVoiceSelector {
-    constructor(triggerElement, synthesizer) {
-        this._synthesizer = synthesizer;
+    constructor(triggerElement, onSelect, defaultSelectedID) {
         this._triggerElement = triggerElement;
+        this._onSelect = onSelect;
+        this._selectedID = defaultSelectedID;
         const menu = this._createEmptyMenu();
         this._populateMenu(menu);
         return menu;
@@ -24,14 +25,15 @@
                     label: voice.displayName,
                     onclick: () => {
                         menu.getCommandById(this._getMenuCommandIDFromVoiceID(
-                            this._synthesizer.voice.id
+                            this._selectedID
                         )).selected = false;
                         menu.getCommandById(this._getMenuCommandIDFromVoiceID(
                             voice.id
                         )).selected = true;
-                        this._synthesizer.voice = voice
+                        this._selectedID = voice.id
+                        this._onSelect(voice);
                     },
-                    selected: this._synthesizer.voice.id === voice.id,
+                    selected: this._selectedID === voice.id,
                     type: "toggle"
                 });
                 menu.element.appendChild(command.element);

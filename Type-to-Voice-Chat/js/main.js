@@ -7,6 +7,7 @@
     // Consts
     const DEVICE_SELECTOR_BUTTON_ID = "deviceSelectorButton";
     const LOCAL_SETTING_DEVICE_ID = "deviceID";
+    const LOCAL_SETTING_VOICE_ID = "voiceID";
     const MESSAGE_INPUT_ID = "messageInput";
     const TEMP_FILE_NAME = "message.wav";
     const VOICE_SELECTOR_BUTTON_ID = "voiceSelectorButton";
@@ -14,7 +15,7 @@
     const localSettings = Windows.Storage.ApplicationData.current.localSettings;
     const synthesizer = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
     let selectedDeviceID = getDefaultDeviceID();
-
+ 
     app.onactivated = (args) => {
         if (isFirstActivation) {
             args.setPromise(WinJS.UI.processAll().then(function completed() {
@@ -32,9 +33,15 @@
                     onPlayMessage
                 );
 
+                const defaultVoiceID = getDefaultVoiceID();
+                synthesizer.voice =
+                    Windows.Media.SpeechSynthesis.SpeechSynthesizer.allVoices.find(
+                        voice => voice.id === defaultVoiceID
+                    );
                 new SpeechSynthesizerVoiceSelector(
                     document.getElementById(VOICE_SELECTOR_BUTTON_ID),
-                    synthesizer
+                    onSelectVoice,
+                    defaultVoiceID
                 );
             }));
         }
@@ -55,6 +62,19 @@
     function onSelectDevice(deviceInfo) {
         selectedDeviceID = deviceInfo.id;
         localSettings.values[LOCAL_SETTING_DEVICE_ID] = deviceInfo.id;
+    }
+
+    function getDefaultVoiceID() {
+        const localSetting = localSettings.values[LOCAL_SETTING_VOICE_ID];
+        if (localSetting) {
+            return localSetting;
+        }
+        return Windows.Media.SpeechSynthesis.SpeechSynthesizer.allVoices[0].id;
+    }
+
+    function onSelectVoice(voice) {
+        synthesizer.voice = voice;
+        localSettings.values[LOCAL_SETTING_VOICE_ID] = voice.id;
     }
 
     function onPlayMessage(message) {
