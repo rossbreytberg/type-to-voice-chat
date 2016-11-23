@@ -2,20 +2,37 @@
 	background-color: #000;
 }
 
-#devicePickerButton {
+button {
 	color: white;
 	background-color: transparent;
 	border: none;
 	font-size: 20px;
 	outline: none;
+
+}
+
+button:active, button:active:hover {
+	color: #aaa;
+}
+
+button:hover {
+	color: #ccc;
+}
+
+#devicePickerButton {
+	margin-left: 4px;
 	position: absolute;
 	left: 85%;
 	top: 50%;
 	transform: translate(0, -50%);
 }
 
-#devicePickerButton:active {
-	color: #ccc;
+#voicePickerButton {
+	margin-right: 4px;
+	position: absolute;
+	right: 85%;
+	top: 50%;
+	transform: translate(0, -50%);
 }
 
 #messageInput {
@@ -30,4 +47,8 @@
 	top: 50%;
 	transform: translate(-50%, -50%);
 	width: 70%;
+}
+
+.win-menu {
+	border: none;
 }

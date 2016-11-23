@@ -7,17 +7,12 @@
     // Consts
     const MESSAGE_FILE_NAME = "message.wav";
 
-    // DOM Elements
+    const devicePicker = createDevicePicker();
     let devicePickerButton = null;
-    let messageInput = null;
-
-    // Message History
-    const messageHistory = [];
-    let messageHistoryIndex = 0;
-
-    // Audio
+    let selectedDeviceInfo = null;
     const synthesizer = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
-    let outputDeviceInfo = null;
+    const voicePicker = createVoicePicker();
+    let voicePickerButton = null;
 
     app.onactivated = (args) => {
         if (isFirstActivation) {
@@ -25,42 +20,29 @@
                 Windows.UI.ViewManagement.ApplicationView.getForCurrentView()
                     .setPreferredMinSize({width: 310, height: 150})
 
-                document.addEventListener("keydown", onKeyDown);
-
                 devicePickerButton = document.getElementById(
                     "devicePickerButton"
                 );
-                devicePickerButton.addEventListener(
-                    "click",
-                    onDevicePickerButtonClick
-                );
+                document.body.appendChild(devicePicker.element);
+                devicePickerButton.onclick = () => devicePicker.show();
 
-                messageInput = document.getElementById("messageInput");
-                messageInput.addEventListener("input", onMessageInputChange);
+                voicePickerButton = document.getElementById(
+                    "voicePickerButton"
+                );
+                document.body.appendChild(voicePicker.element);
+                voicePickerButton.onclick = () =>  voicePicker.show();
+
+                new MessageInput(
+                    document.getElementById("messageInput"),
+                    onMessageSubmit
+                );
             }));
         }
         isFirstActivation = false;
     };
     app.start();
 
-    function onKeyDown(eventInfo) {
-        switch (eventInfo.keyCode) {
-            case 13: // Enter
-                return onMessageSubmit();
-            case 38: // Up
-                return prevMessage();
-            case 40: // Down
-                return nextMessage();
-        }
-    }
-
-    function onMessageInputChange(eventInfo) {
-        // Update newest message in history as it's typed.
-        messageHistory[0] = messageInput.value;
-    }
-
-    function onMessageSubmit() {
-        const message = messageInput.value;
+    function onMessageSubmit(message) {
         const streamPromise = synthesizer.synthesizeTextToStreamAsync(message);
 
         // Get audio buffer.
@@ -92,7 +74,7 @@
         const audioGraphSettings = new Windows.Media.Audio.AudioGraphSettings(
             Windows.Media.Render.AudioRenderCategory.communications
         );
-        audioGraphSettings.primaryRenderDevice = outputDeviceInfo;
+        audioGraphSettings.primaryRenderDevice = selectedDeviceInfo;
         const audioGraphPromise = Windows.Media.Audio.AudioGraph.createAsync(
             audioGraphSettings
         ).then(createAudioGraphResult => {
@@ -144,55 +126,80 @@
             inputNode.addOutgoingConnection(outputNode);
             audioGraph.start();
         });
-
-        // Update message history.
-        if (messageHistoryIndex > 0) {
-            // If a message from history was sent, overwrite the
-            // newest index with that message and reset the index.
-            messageHistory[0] = messageHistory[messageHistoryIndex];
-            messageHistoryIndex = 0;
-        }
-        messageHistory.unshift("");
-        messageInput.value = '';
     }
 
-    function prevMessage() {
-        if (messageHistoryIndex >= messageHistory.length - 1) {
-            // Reached end of history.
-            return;
-        }
-        messageHistoryIndex++;
-        messageInput.value = messageHistory[messageHistoryIndex];
-    }
-
-    function nextMessage() {
-        if (messageHistoryIndex === 0) {
-            // Reached beginning of history.
-            return;
-        }
-        messageHistoryIndex--;
-        messageInput.value = messageHistory[messageHistoryIndex];
-    }
-
-    function onDevicePickerButtonClick() {
-        devicePickerButton.disabled = true;
-
-        const devicePicker = new Windows.Devices.Enumeration.DevicePicker();
-        devicePicker.filter.supportedDeviceClasses.append(
-            Windows.Devices.Enumeration.DeviceClass.audioRender
-        );
-
-        const buttonRect = devicePickerButton.getBoundingClientRect();
-        devicePicker.pickSingleDeviceAsync({
-            x: buttonRect.left,
-            y: buttonRect.top,
-            width: buttonRect.width,
-            height: buttonRect.height,
-        }).done(deviceInfo => {
-            if (deviceInfo !== null) {
-                outputDeviceInfo = deviceInfo;
-            }
-            devicePickerButton.disabled = false;
+    function createDevicePicker() {
+        const menu = new WinJS.UI.Menu(null, {
+            anchor: "devicePickerButton"
         });
+        const loadingCommand = new WinJS.UI.MenuCommand(null, {
+            id: "loading",
+            label: "Loading..."
+        });
+        menu.element.appendChild(loadingCommand.element);
+
+        const defaultDeviceID =
+            Windows.Media.Devices.MediaDevice.getDefaultAudioRenderId(
+                Windows.Media.Devices.AudioDeviceRole.communications
+            );
+        Windows.Devices.Enumeration.DeviceInformation.findAllAsync(
+            Windows.Devices.Enumeration.DeviceClass.audioRender
+        ).then(devices => {
+            loadingCommand.hidden = true;
+            devices.forEach(deviceInfo => {
+                if (deviceInfo.id === defaultDeviceID) {
+                    selectedDeviceInfo = deviceInfo;
+                }
+                const command = new WinJS.UI.MenuCommand(null, {
+                    id: getIDFromString(deviceInfo.id),
+                    label: deviceInfo.name,
+                    onclick: () => {
+                        menu.getCommandById(
+                            getIDFromString(selectedDeviceInfo.id)
+                        ).selected = false;
+                        menu.getCommandById(
+                            getIDFromString(deviceInfo.id)
+                        ).selected = true;
+                        selectedDeviceInfo = deviceInfo;
+                    },
+                    selected: deviceInfo.id === defaultDeviceID,
+                    type: "toggle"
+
+                });
+                menu.element.appendChild(command.element);
+            });
+        });
+        return menu;
+    }
+
+    function createVoicePicker() {
+        const menu = new WinJS.UI.Menu(null, {
+            anchor: "voicePickerButton"
+        });
+        Windows.Media.SpeechSynthesis.SpeechSynthesizer.allVoices.forEach(
+            voice => {
+                const command = new WinJS.UI.MenuCommand(null, {
+                    id: getIDFromString(voice.id),
+                    label: voice.displayName,
+                    onclick: () => {
+                        menu.getCommandById(
+                            getIDFromString(synthesizer.voice.id)
+                        ).selected = false;
+                        menu.getCommandById(
+                            getIDFromString(voice.id)
+                        ).selected = true;
+                        synthesizer.voice = voice
+                    },
+                    selected: synthesizer.voice.id === voice.id,
+                    type: "toggle"
+                });
+                menu.element.appendChild(command.element);
+            }
+        );
+        return menu;
+    }
+
+    function getIDFromString(string) {
+        return string.replace(/[^a-z0-9]/gi, "");
     }
 })();
