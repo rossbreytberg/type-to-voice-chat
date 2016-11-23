@@ -10,10 +10,8 @@
     const TEMP_FILE_NAME = "message.wav";
     const VOICE_SELECTOR_BUTTON_ID = "voiceSelectorButton";
 
-    let selectedDeviceInfo = null;
     const synthesizer = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
-    const voicePicker = createVoicePicker();
-    let voicePickerButton = null;
+    let selectedDeviceInfo = null;
 
     app.onactivated = (args) => {
         if (isFirstActivation) {
@@ -26,15 +24,14 @@
                     deviceInfo => selectedDeviceInfo = deviceInfo
                 );
 
-                voicePickerButton = document.getElementById(
-                    VOICE_SELECTOR_BUTTON_ID
-                );
-                document.body.appendChild(voicePicker.element);
-                voicePickerButton.onclick = () =>  voicePicker.show();
-
                 new MessageInput(
                     document.getElementById(MESSAGE_INPUT_ID),
-                    onMessageSubmit
+                    onPlayMessage
+                );
+
+                new SpeechSynthesizerVoiceSelector(
+                    document.getElementById(VOICE_SELECTOR_BUTTON_ID),
+                    synthesizer
                 );
             }));
         }
@@ -42,7 +39,7 @@
     };
     app.start();
 
-    function onMessageSubmit(message) {
+    function onPlayMessage(message) {
         const streamPromise = synthesizer.synthesizeTextToStreamAsync(message);
 
         // Get audio buffer.
@@ -126,36 +123,5 @@
             inputNode.addOutgoingConnection(outputNode);
             audioGraph.start();
         });
-    }
-
-    function createVoicePicker() {
-        const menu = new WinJS.UI.Menu(null, {
-            anchor: VOICE_SELECTOR_BUTTON_ID
-        });
-        Windows.Media.SpeechSynthesis.SpeechSynthesizer.allVoices.forEach(
-            voice => {
-                const command = new WinJS.UI.MenuCommand(null, {
-                    id: getIDFromString(voice.id),
-                    label: voice.displayName,
-                    onclick: () => {
-                        menu.getCommandById(
-                            getIDFromString(synthesizer.voice.id)
-                        ).selected = false;
-                        menu.getCommandById(
-                            getIDFromString(voice.id)
-                        ).selected = true;
-                        synthesizer.voice = voice
-                    },
-                    selected: synthesizer.voice.id === voice.id,
-                    type: "toggle"
-                });
-                menu.element.appendChild(command.element);
-            }
-        );
-        return menu;
-    }
-
-    function getIDFromString(string) {
-        return string.replace(/[^a-z0-9]/gi, "");
     }
 })();
