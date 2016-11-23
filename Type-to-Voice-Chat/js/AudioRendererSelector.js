@@ -1,7 +1,8 @@
 ﻿class AudioRendererSelector {
-    constructor(triggerElement, onSelect) {
+    constructor(triggerElement, onSelect, defaultSelectedID) {
         this._triggerElement = triggerElement;
         this._onSelect = onSelect;
+        this._selectedID = defaultSelectedID;
         const menu = this._createEmptyMenu();
         this._populateMenu(menu);
         return menu;
@@ -24,14 +25,6 @@
         });
         menu.element.appendChild(loadingCommand.element);
 
-        // Keep track of selected device ID so we can correctly
-        // show a checkmark next to it in the menu.
-        // Assume the first selected device is the default.
-        let selectedDeviceID =
-            Windows.Media.Devices.MediaDevice.getDefaultAudioRenderId(
-                Windows.Media.Devices.AudioDeviceRole.communications
-            );
-
         // Populate menu with audio renderers.
         Windows.Devices.Enumeration.DeviceInformation.findAllAsync(
             Windows.Devices.Enumeration.DeviceClass.audioRender
@@ -43,15 +36,15 @@
                     label: deviceInfo.name,
                     onclick: () => {
                         menu.getCommandById(this._getMenuCommandIDFromDeviceID(
-                            selectedDeviceID
+                            this._selectedID
                         )).selected = false;
                         menu.getCommandById(this._getMenuCommandIDFromDeviceID(
                             deviceInfo.id
                         )).selected = true;
-                        selectedDeviceID = deviceInfo.id;
+                        this._selectedID = deviceInfo.id;
                         this._onSelect(deviceInfo);
                     },
-                    selected: deviceInfo.id === selectedDeviceID,
+                    selected: deviceInfo.id === this._selectedID,
                     type: "toggle"
                 });
                 menu.element.appendChild(command.element);
