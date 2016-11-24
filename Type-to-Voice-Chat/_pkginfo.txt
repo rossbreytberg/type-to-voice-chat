@@ -1,1 +1,1 @@
-C:\Users\Ross\documents\visual studio 2015\Projects\Type-to-Voice-Chat\Type-to-Voice-Chat\AppPackages\Type-to-Voice-Chat_1.1.0.0\Type-to-Voice-Chat_1.1.0.0_AnyCPU.appxbundle
+C:\Users\Ross\documents\visual studio 2015\Projects\Type-to-Voice-Chat\Type-to-Voice-Chat\AppPackages\Type-to-Voice-Chat_1.1.4.0\Type-to-Voice-Chat_1.1.4.0_AnyCPU.appxbundle
