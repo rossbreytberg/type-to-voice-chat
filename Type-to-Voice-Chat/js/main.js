@@ -1,175 +1,121 @@
 ﻿(() => {
-    "use strict";
+  "use strict";
 
-    const app = WinJS.Application;
-    let isFirstActivation = true;
+  const MESSAGE_INPUT_ID = "messageInput";
+  const DEVICE_SELECTOR_BUTTON_ID = "deviceSelectorButton";
+  const VOICE_SELECTOR_BUTTON_ID = "voiceSelectorButton";
+  const TEMP_FILE_NAME = "message.wav";
 
-    // Consts
-    const DEVICE_SELECTOR_BUTTON_ID = "deviceSelectorButton";
-    const LOCAL_SETTING_DEVICE_ID = "deviceID";
-    const LOCAL_SETTING_VOICE_ID = "voiceID";
-    const MESSAGE_INPUT_ID = "messageInput";
-    const TEMP_FILE_NAME = "message.wav";
-    const VOICE_SELECTOR_BUTTON_ID = "voiceSelectorButton";
+  const localSettings = Windows.Storage.ApplicationData.current.localSettings;
+  const synthesizer = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
 
-    const localSettings = Windows.Storage.ApplicationData.current.localSettings;
-    const synthesizer = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
-    let selectedDeviceID = getDefaultDeviceID();
- 
-    app.onactivated = (args) => {
-        if (isFirstActivation) {
-            args.setPromise(WinJS.UI.processAll().then(function completed() {
-                Windows.UI.ViewManagement.ApplicationView.getForCurrentView()
-                    .setPreferredMinSize({width: 310, height: 150})
+  let audioDeviceSelector = null;
+  let isFirstActivation = true;
 
-                new AudioRendererSelector(
-                    document.getElementById(DEVICE_SELECTOR_BUTTON_ID),
-                    onSelectDevice,
-                    selectedDeviceID
-                );
-
-                new MessageInput(
-                    document.getElementById(MESSAGE_INPUT_ID),
-                    onPlayMessage
-                );
-
-                const defaultVoiceID = getDefaultVoiceID();
-                synthesizer.voice =
-                    Windows.Media.SpeechSynthesis.SpeechSynthesizer.allVoices.find(
-                        voice => voice.id === defaultVoiceID
-                    );
-                new SpeechSynthesizerVoiceSelector(
-                    document.getElementById(VOICE_SELECTOR_BUTTON_ID),
-                    onSelectVoice,
-                    defaultVoiceID
-                );
-            }));
-        }
-        isFirstActivation = false;
-    };
-    app.start();
-
-    function getDefaultDeviceID() {
-        const localSetting = localSettings.values[LOCAL_SETTING_DEVICE_ID];
-        if (localSetting) {
-            return localSetting;
-        }
-        return Windows.Media.Devices.MediaDevice.getDefaultAudioRenderId(
-            Windows.Media.Devices.AudioDeviceRole.communications
-        );
+  WinJS.Application.onactivated = async (args) => {
+    if (!isFirstActivation) {
+      return;
     }
+    isFirstActivation = false;
+    await WinJS.UI.processAll();
+    Windows.UI.ViewManagement.ApplicationView.getForCurrentView().setPreferredMinSize(
+      { width: 310, height: 150 },
+    );
 
-    function onSelectDevice(deviceInfo) {
-        selectedDeviceID = deviceInfo.id;
-        localSettings.values[LOCAL_SETTING_DEVICE_ID] = deviceInfo.id;
+    audioDeviceSelector = new AudioDeviceSelector(
+      document.getElementById(DEVICE_SELECTOR_BUTTON_ID),
+      localSettings,
+    );
+
+    new MessageInput(document.getElementById(MESSAGE_INPUT_ID), onMessage);
+
+    new VoiceSelector(
+      document.getElementById(VOICE_SELECTOR_BUTTON_ID),
+      localSettings,
+      synthesizer,
+    );
+  };
+  WinJS.Application.start();
+
+  async function onMessage(message) {
+    const [file, audioGraph] = await Promise.all([
+      createAudioFile(message),
+      createAudioGraph(),
+    ]);
+    const [fileInputNode, deviceOutputNode] = await Promise.all([
+      createFileInputNode(audioGraph, file),
+      createDeviceOutputNode(audioGraph),
+    ]);
+    fileInputNode.addOutgoingConnection(deviceOutputNode);
+    audioGraph.start();
+  }
+
+  async function createAudioFile(message) {
+    const stream = await synthesizer.synthesizeTextToStreamAsync(message);
+    const dataReader = new Windows.Storage.Streams.DataReader(stream);
+    await dataReader.loadAsync(stream.size);
+    const buffer = dataReader.readBuffer(stream.size);
+
+    const tempFolder = Windows.Storage.ApplicationData.current.temporaryFolder;
+    let file = await tempFolder.tryGetItemAsync(TEMP_FILE_NAME);
+    if (file === null) {
+      file = await tempFolder.createFileAsync(TEMP_FILE_NAME);
     }
+    await Windows.Storage.FileIO.writeBufferAsync(file, buffer);
+    return file;
+  }
 
-    function getDefaultVoiceID() {
-        const localSetting = localSettings.values[LOCAL_SETTING_VOICE_ID];
-        if (localSetting) {
-            return localSetting;
-        }
-        return Windows.Media.SpeechSynthesis.SpeechSynthesizer.allVoices[0].id;
+  async function createAudioGraph() {
+    const audioGraphSettings = new Windows.Media.Audio.AudioGraphSettings(
+      Windows.Media.Render.AudioRenderCategory.communications,
+    );
+    audioGraphSettings.primaryRenderDevice = await Windows.Devices.Enumeration.DeviceInformation.createFromIdAsync(
+      audioDeviceSelector.getSelectedDeviceID(),
+    );
+    const createAudioGraphResult = await Windows.Media.Audio.AudioGraph.createAsync(
+      audioGraphSettings,
+    );
+    if (
+      createAudioGraphResult.status !==
+      Windows.Media.Audio.AudioGraphCreationStatus.success
+    ) {
+      throw new Error(
+        "Error creating AudioGraph",
+        createAudioGraphResult.status,
+      );
     }
+    return createAudioGraphResult.graph;
+  }
 
-    function onSelectVoice(voice) {
-        synthesizer.voice = voice;
-        localSettings.values[LOCAL_SETTING_VOICE_ID] = voice.id;
+  async function createFileInputNode(audioGraph, file) {
+    const createInputNodeResult = await audioGraph.createFileInputNodeAsync(
+      file,
+    );
+    if (
+      createInputNodeResult.status !==
+      Windows.Media.Audio.AudioFileNodeCreationStatus.success
+    ) {
+      throw new Error(
+        "Error creating AudioFileInputNode",
+        createInputNodeResult.status,
+      );
     }
+    return createInputNodeResult.fileInputNode;
+  }
 
-    function onPlayMessage(message) {
-        const streamPromise = synthesizer.synthesizeTextToStreamAsync(message);
-
-        // Get audio buffer.
-        const bufferPromise = streamPromise.then(stream => {
-            const dataReader = new Windows.Storage.Streams.DataReader(stream);
-            return dataReader.loadAsync(stream.size).then(
-                () => dataReader.readBuffer(stream.size)
-            );
-        });
-
-        // Write buffer to temp file.
-        const filePromise = bufferPromise.then(buffer => {
-            const tempFolder =
-                Windows.Storage.ApplicationData.current.temporaryFolder;
-            const filePromise =
-                tempFolder.tryGetItemAsync(TEMP_FILE_NAME).then(file => {
-                    if (file === null) {
-                        return tempFolder.createFileAsync(TEMP_FILE_NAME);
-                    }
-                    return file;
-                });
-            return filePromise.then(file => Windows.Storage.FileIO.writeBufferAsync(
-                file,
-                buffer
-            )).then(() => filePromise);
-        });
-
-        // Use AudioGraph to play buffer.
-        const audioGraphSettingsPromise =
-            Windows.Devices.Enumeration.DeviceInformation.createFromIdAsync(
-                selectedDeviceID
-            ).then((selectedDeviceInfo) => {
-                const audioGraphSettings =
-                    new Windows.Media.Audio.AudioGraphSettings(
-                        Windows.Media.Render.AudioRenderCategory.communications
-                    );
-                audioGraphSettings.primaryRenderDevice = selectedDeviceInfo;
-                return audioGraphSettings;
-            });
-
-        const audioGraphPromise = audioGraphSettingsPromise.then(
-            audioGraphSettings => Windows.Media.Audio.AudioGraph.createAsync(
-                audioGraphSettings
-            ).then(createAudioGraphResult => {
-                if (createAudioGraphResult.status ===
-                    Windows.Media.Audio.AudioGraphCreationStatus.success) {
-                    return createAudioGraphResult.graph;
-                }
-                throw new Error(
-                    "Error creating AudioGraph",
-                    createAudioGraphResult.status
-                );
-            })
-        );
- 
-        const inputNodePromise = Promise.all([
-            audioGraphPromise,
-            filePromise
-        ]).then(([audioGraph, file]) => {
-            return audioGraph.createFileInputNodeAsync(file).then(result => {
-                if (result.status ===
-                    Windows.Media.Audio.AudioFileNodeCreationStatus.success) {
-                    return result.fileInputNode;
-                }
-                throw new Error(
-                    "Error creating AudioFileInputNode",
-                    result.status
-                );
-            });
-        });
- 
-        const outputNodePromise = audioGraphPromise.then(
-            audioGraph => audioGraph.createDeviceOutputNodeAsync(
-                Windows.Media.Render.AudioRenderCategory.communications
-            ).then(result => {
-                if (result.status ===
-                    Windows.Media.Audio.AudioDeviceNodeCreationStatus.success) {
-                    return result.deviceOutputNode;
-                }
-                throw new Error(
-                    'Error creating AudioDeviceOutputNode',
-                    result.status
-                );
-            })
-        );
-        Promise.all([
-            audioGraphPromise,
-            inputNodePromise,
-            outputNodePromise
-        ]).then(([audioGraph, inputNode, outputNode]) => {
-            inputNode.addOutgoingConnection(outputNode);
-            audioGraph.start();
-        });
+  async function createDeviceOutputNode(audioGraph) {
+    const createOutputNodeResult = await audioGraph.createDeviceOutputNodeAsync(
+      Windows.Media.Render.AudioRenderCategory.communications,
+    );
+    if (
+      createOutputNodeResult.status !==
+      Windows.Media.Audio.AudioDeviceNodeCreationStatus.success
+    ) {
+      throw new Error(
+        "Error creating AudioDeviceOutputNode",
+        createOutputNodeResult.status,
+      );
     }
+    return createOutputNodeResult.deviceOutputNode;
+  }
 })();

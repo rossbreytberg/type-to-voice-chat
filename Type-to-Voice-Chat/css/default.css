@@ -11,14 +11,6 @@ button {
 
 }
 
-button:active, button:active:hover {
-	color: #aaa;
-}
-
-button:hover {
-	color: #ccc;
-}
-
 #deviceSelectorButton {
 	margin-left: 4px;
 	position: absolute;
@@ -47,8 +39,4 @@ button:hover {
 	top: 50%;
 	transform: translate(-50%, -50%);
 	width: 70%;
-}
-
-.win-menu {
-	border: none;
 }
