@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" IgnorableNamespaces="uap mp">
-  <Identity Name="16107RossBreytberg.TypetoVoiceChat" Version="1.1.8.0" Publisher="CN=8C3455C1-B52D-4009-A7EE-09A46222E635" />
+  <Identity Name="16107RossBreytberg.TypetoVoiceChat" Version="1.1.9.0" Publisher="CN=8C3455C1-B52D-4009-A7EE-09A46222E635" />
   <mp:PhoneIdentity PhoneProductId="5cf96450-f063-41a5-9827-f2854a962ea1" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>Type to Voice Chat</DisplayName>
