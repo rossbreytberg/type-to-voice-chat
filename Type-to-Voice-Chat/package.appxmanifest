@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" IgnorableNamespaces="uap mp">
-  <Identity Name="16107RossBreytberg.TypetoVoiceChat" Version="1.1.10.0" Publisher="CN=8C3455C1-B52D-4009-A7EE-09A46222E635" />
+  <Identity Name="16107RossBreytberg.TypetoVoiceChat" Version="1.1.11.0" Publisher="CN=8C3455C1-B52D-4009-A7EE-09A46222E635" />
   <mp:PhoneIdentity PhoneProductId="5cf96450-f063-41a5-9827-f2854a962ea1" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>Type to Voice Chat</DisplayName>
@@ -16,7 +16,8 @@
   <Applications>
     <Application Id="App" StartPage="index.html">
       <uap:VisualElements DisplayName="Type to Voice Chat" Description="Roommate asleep when you want to voice chat? No problem! This app turns what you type into audio that can be send to any output device you choose. Combine with a virtual microphone such as VB-Cable and you'll be able to talk to your friends on Skype, Discord, and more simply by typing." BackgroundColor="transparent" Square150x150Logo="images\Square150x150Logo.png" Square44x44Logo="images\Square44x44Logo.png">
-        <uap:DefaultTile ShortName="TypeSpeak" Wide310x150Logo="images\Wide310x150Logo.png">
+        <uap:LockScreen Notification="badge" BadgeLogo="images\BadgeLogo.png" />
+        <uap:DefaultTile ShortName="TypeSpeak" Wide310x150Logo="images\Wide310x150Logo.png" Square310x310Logo="images\LargeTile.png" Square71x71Logo="images\SmallTile.png">
           <uap:ShowNameOnTiles>
             <uap:ShowOn Tile="wide310x150Logo" />
           </uap:ShowNameOnTiles>
