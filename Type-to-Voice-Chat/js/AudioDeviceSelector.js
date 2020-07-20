@@ -65,7 +65,9 @@ class AudioDeviceSelector {
     return () => {
       const previousID = this._getSelectedMenuItemID();
       const previousItem = menu.getCommandById(this._getMenuItemID(previousID));
-      previousItem.selected = false;
+      if (previousItem) {
+        previousItem.selected = false;
+      }
       const nextItem = menu.getCommandById(this._getMenuItemID(deviceID));
       nextItem.selected = true;
       this._onSelectDevice(deviceID);
